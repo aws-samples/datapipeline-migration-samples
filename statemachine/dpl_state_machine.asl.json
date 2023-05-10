@@ -1,0 +1,99 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "CreateActivity",
+  "States": {
+    "CreateActivity": {
+      "Type": "Task",
+      "Next": "RunShellScript",
+      "Parameters": {
+        "Name": "Monitor_Job"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:sfn:createActivity",
+      "ResultPath": "$.ActivityInfo"
+    },
+    "RunShellScript": {
+      "Type": "Task",
+      "Parameters": {
+        "InstanceType": "t2.micro",
+        "ImageId": "ami-06e85d4c3149db26a",
+        "MinCount": 1,
+        "MaxCount": 1,
+        "SecurityGroupIds": [
+          "${ec2SecurityGroup}"
+        ],
+        "SubnetId": "${ec2Subnet}",
+        "KeyName": "${ec2KeyPair}",
+        "BlockDeviceMappings": [
+          {
+            "DeviceName": "/dev/sdh",
+            "Ebs": {
+              "VolumeSize": 20
+            }
+          }
+        ],
+        "IamInstanceProfile": {
+          "Name": "${ec2InstanceProfile}"
+        },
+        "UserData.$": "States.Base64Encode($.userInput)"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:ec2:runInstances",
+      "Next": "Pause for Job Completion",
+      "ResultPath": "$.taskOutput",
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Comment": "Launch Failure",
+          "Next": "SNS Publish",
+          "ResultPath": "$.runInstances"
+        }
+      ],
+      "TimeoutSeconds": 100
+    },
+    "Pause for Job Completion": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::activity:Monitor_Job",
+      "Next": "DeleteActivity",
+      "HeartbeatSeconds": 600,
+      "ResultPath": null,
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "Comment": "Job Failure",
+          "Next": "SNS Publish",
+          "ResultPath": "$.jobStatus"
+        }
+      ],
+      "TimeoutSeconds": 180
+    },
+    "DeleteActivity": {
+      "Type": "Task",
+      "Parameters": {
+        "ActivityArn.$": "$.ActivityInfo.ActivityArn"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:sfn:deleteActivity",
+      "Next": "TerminateInstances",
+      "ResultPath": null
+    },
+    "TerminateInstances": {
+      "Type": "Task",
+      "Parameters": {
+        "InstanceIds.$": "States.Array($.taskOutput.Instances[0].InstanceId)"
+      },
+      "Resource": "arn:aws:states:::aws-sdk:ec2:terminateInstances",
+      "Next": "SNS Publish"
+    },
+    "SNS Publish": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "Message.$": "$",
+        "TopicArn": "${snsTopic}"
+      },
+      "End": true
+    }
+  }
+}

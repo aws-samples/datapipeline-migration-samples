@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "aws-sdk": "^2.1308.0"
+  },
+  "author": "Amazon Web Services (AWS)",
+  "license": "MIT-0"
+}
