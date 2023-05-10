@@ -1,5 +1,7 @@
 # DataPipeline_StepFunctions
 
+This sample application tells how you to move a Datapipeline application to Step Function. Using this as a reference you can build similar examples.
+
 Datapipeline offers to run Shell scripts to accomplish certain tasks, and takes care of spinning up the EC2 instance to run the shell script job. Step Functions offers you to achieve the same, and deploying the script below deploys the StepFunction workflow to run the Shell script job and also terminate the resources when the job is complete as well send a user notification. 
 
 ![Alt text](stepfunctions.png?raw=true "SF_ShellScript")
